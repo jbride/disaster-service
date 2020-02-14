@@ -1,8 +1,6 @@
 package com.redhat.emergency.response.disaster;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import com.redhat.emergency.response.disaster.model.DisasterCenter;
@@ -16,72 +14,34 @@ import io.reactivex.Completable;
 import io.vertx.core.json.DecodeException;
 import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.auth.oauth2.OAuth2FlowType;
+import io.vertx.ext.auth.oauth2.impl.OAuth2TokenImpl;
 import io.vertx.ext.healthchecks.Status;
 import io.vertx.reactivex.core.AbstractVerticle;
+import io.vertx.reactivex.ext.auth.oauth2.OAuth2Auth;
+import io.vertx.reactivex.ext.auth.oauth2.providers.KeycloakAuth;
 import io.vertx.reactivex.ext.healthchecks.HealthCheckHandler;
 import io.vertx.reactivex.ext.web.Router;
 import io.vertx.reactivex.ext.web.RoutingContext;
 import io.vertx.reactivex.ext.web.handler.BodyHandler;
+import io.vertx.reactivex.ext.web.handler.OAuth2AuthHandler;
 import io.vertx.reactivex.micrometer.PrometheusScrapingHandler;
 
 public class RestApiVerticle extends AbstractVerticle {
 
     private static final Logger log = LoggerFactory.getLogger(RestApiVerticle.class);
-    private static List<Shelter> shelters = new ArrayList<Shelter>(Arrays.asList(
-        new Shelter("1", "Port City Marina", new BigDecimal(-77.9519), new BigDecimal(34.2461), 0),
-        new Shelter("2", "Wilmington Marine Center", new BigDecimal(-77.949), new BigDecimal(34.1706), 0),
-        new Shelter("3", "Carolina Beach Yacht Club", new BigDecimal(-77.8885), new BigDecimal(34.0583), 0)
-    ));
-    private static DisasterCenter disasterCenter = new DisasterCenter("Wilmington, North Carolina, United States", 
-        new BigDecimal(-77.886765), new BigDecimal(34.158808));
+    private static List<Shelter> shelters = new ArrayList<Shelter>();
+    private static DisasterCenter disasterCenter;
 
-    private static List<InclusionZone> inclusionZones = new ArrayList<InclusionZone>(Arrays.asList(
-        new InclusionZone("1", Arrays.asList(
-            new double[]{-77.95, 34.26},
-			new double[]{-77.82, 34.26},
-			new double[]{-77.77, 34.24},
-			new double[]{-77.812, 34.185},
-			new double[]{-77.830, 34.195},
-			new double[]{-77.868, 34.134},
-			new double[]{-77.885, 34.081},
-			new double[]{-77.89, 34.04},
-			new double[]{-77.93, 33.96},
-			new double[]{-77.919, 34.00},
-			new double[]{-77.920, 34.05},
-			new double[]{-77.927, 34.12},
-			new double[]{-77.914, 34.126},
-			new double[]{-77.937, 34.151},
-			new double[]{-77.954, 34.190},
-			new double[]{-77.95, 34.26}
-        )),
-        new InclusionZone("2", Arrays.asList(
-            new double[]{-77.981, 34.232},
-			new double[]{-77.954, 34.227},
-			new double[]{-77.965, 34.207},
-			new double[]{-77.964, 34.183},
-			new double[]{-77.967, 34.184},
-			new double[]{-77.971, 34.204},
-            new double[]{-77.975, 34.221},
-            new double[]{-77.981, 34.232}
-        )),
-        new InclusionZone("3", Arrays.asList(
-            new double[]{-77.943, 34.130},
-			new double[]{-77.940, 34.128},
-			new double[]{-77.939, 34.120},
-			new double[]{-77.938, 34.117},
-			new double[]{-77.941, 34.112},
-			new double[]{-77.944, 34.116},
-			new double[]{-77.947, 34.117},
-			new double[]{-77.948, 34.122},
-			new double[]{-77.946, 34.124},
-			new double[]{-77.942, 34.123},
-            new double[]{-77.943, 34.128},
-            new double[]{-77.943, 34.130}
-        ))
-    ));
+    private static List<InclusionZone> inclusionZones = new ArrayList<InclusionZone>();
 
     @Override
     public Completable rxStart() {
+        //default to wilmington
+        vertx.fileSystem().readFile("wilmington.json", file -> {
+            applyDisasterJson((JsonObject)Json.decodeValue(file.result().toString()));
+        });
+
         return initializeHttpServer(config());
     }
 
@@ -92,11 +52,27 @@ public class RestApiVerticle extends AbstractVerticle {
         router.route("/metrics").handler(PrometheusScrapingHandler.create());
         router.route().handler(BodyHandler.create());
 
+        //configure KeyCloak
+        JsonObject keycloakJson = new JsonObject()
+            .put("realm", config.getString("REALM"))
+            .put("auth-server-url", config.getString("AUTH_URL"))
+            .put("ssl-required", "external")
+            .put("resource", config.getString("VERTX_CLIENTID"))
+            .put("credentials", new JsonObject().put("secret", config.getString("VERTX_CLIENT_SECRET")))
+            .put("confidential-port", 0);
+        OAuth2Auth oauth2 = KeycloakAuth.create(vertx, OAuth2FlowType.AUTH_CODE, keycloakJson);
+        OAuth2AuthHandler oauth2Handler = OAuth2AuthHandler.create(oauth2);
+        oauth2Handler.setupCallback(router.get("/callback"));
+
         HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx)
                 .register("health", f -> f.complete(Status.OK()));
         router.get("/health").handler(healthCheckHandler);
 
+        //secure endpoints that update the disaster
+        router.route("/disaster*").handler(oauth2Handler).handler(this::incidentCommanderHandler);
         router.post("/disaster").handler(this::updateDisaster);
+        router.get("/disaster/defaults/:city").handler(this::defaultDisasterLocation);
+
         router.get("/shelters").handler(this::getShelters);
         router.get("/inclusion-zones").handler(this::getInclusionZones);
         router.get("/center").handler(this::getDisasterCenter);
@@ -107,32 +83,67 @@ public class RestApiVerticle extends AbstractVerticle {
                 .ignoreElement();
     }
 
+    /**
+     * Return a 403 for this request if the associated SSO user (if applicable) doesn't have the incident_commander role
+     * 
+     * @param rc the RoutingContext associated with this request
+     */
+    private void incidentCommanderHandler(RoutingContext rc) {
+        OAuth2TokenImpl user = (OAuth2TokenImpl) rc.user().getDelegate();
+        user.setTrustJWT(true);
+        user.isAuthorized("realm:incident_commander", result -> {
+            if ( ! result.result()) {
+                log.error("Unauthorized access to resource {} by user {}", rc.request().path(), user.accessToken().getString("preferred_username"));
+                rc.response().setStatusCode(403).end();
+            } else {
+                log.info("We're good");
+                rc.next();
+            }
+        });
+    }
+
     private void updateDisaster(RoutingContext rc) {
         log.info("Received message: {}", rc.getBodyAsJson().encodePrettily());
 
-        shelters.clear();
-        inclusionZones.clear();
-
-        try {
-            rc.getBodyAsJson().getJsonArray("shelters").forEach(shelter -> {
-                log.info(((JsonObject)shelter).encodePrettily());
-                shelters.add(Json.decodeValue(((JsonObject) shelter).encode(), Shelter.class));
-            });
-
-            rc.getBodyAsJson().getJsonArray("inclusionZones").forEach(inclusionZone -> {
-                inclusionZones.add(Json.decodeValue(((JsonObject) inclusionZone).encode(), InclusionZone.class));
-            });
-
-            disasterCenter = Json.decodeValue(rc.getBodyAsJson().getJsonObject("center").encode(), DisasterCenter.class);
-        } catch (DecodeException e) {
-            log.error("decoding problem", e);
-        }
+        applyDisasterJson(rc.getBodyAsJson());
 
         rc.response().setStatusCode(200).end();
     }
 
+    private void applyDisasterJson(JsonObject json) {
+        shelters.clear();
+        inclusionZones.clear();
+        
+        try {
+            json.getJsonArray("shelters").forEach(shelter -> {
+                shelters.add(Json.decodeValue(((JsonObject) shelter).encode(), Shelter.class));
+            });
+
+            json.getJsonArray("inclusionZones").forEach(inclusionZone -> {
+                inclusionZones.add(Json.decodeValue(((JsonObject) inclusionZone).encode(), InclusionZone.class));
+            });
+
+            disasterCenter = Json.decodeValue(json.getJsonObject("center").encode(), DisasterCenter.class);
+        } catch (DecodeException e) {
+            log.error("decoding problem", e);
+        }
+    }
+
+    private void defaultDisasterLocation(RoutingContext rc) {
+        String city = rc.request().getParam("city");
+        log.info("Received request for default city {}", city);
+        if (! vertx.fileSystem().existsBlocking(city + ".json")) {
+            rc.response().setStatusCode(404).end("Unrecognized location: " + city);
+            return;
+        }
+        vertx.fileSystem().readFile(city + ".json", file -> {
+            applyDisasterJson((JsonObject)Json.decodeValue(file.result().toString()));
+            rc.response().setStatusCode(200).sendFile(city + ".json");
+        });
+    }
+
     private void getShelters(RoutingContext rc) {
-        rc.response().setStatusCode(200).end(Json.encode(shelters));
+        rc.response().putHeader("Content-type", "application/json").setStatusCode(200).end(Json.encode(shelters));
     }
 
     private void getInclusionZones(RoutingContext rc) {
