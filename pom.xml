@@ -38,6 +38,11 @@
   </dependencyManagement>
   <dependencies>
     <dependency>
+      <groupId>org.infinispan</groupId>
+      <artifactId>infinispan-client-hotrod</artifactId>
+      <version>9.4.6.Final-redhat-00002</version>
+    </dependency>
+    <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
     </dependency>

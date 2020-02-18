@@ -1,5 +1,8 @@
 package com.redhat.emergency.response.disaster;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.reactivex.Completable;
 import io.vertx.config.ConfigRetrieverOptions;
 import io.vertx.config.ConfigStoreOptions;
@@ -7,8 +10,6 @@ import io.vertx.core.DeploymentOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.reactivex.config.ConfigRetriever;
 import io.vertx.reactivex.core.AbstractVerticle;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class MainVerticle extends AbstractVerticle {
 

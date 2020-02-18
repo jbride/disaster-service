@@ -1,6 +1,12 @@
 http:
   port: 8080
-REALM: emergency-realm
-AUTH_URL: https://sso-user-sso-2.apps.erdemo-cf59.open.redhat.com/auth
+REALM: user10-emergency-realm
+AUTH_URL: https://sso-user-sso.apps.cluster-242b.242b.example.opentlc.com/auth
 VERTX_CLIENTID: vertx
 VERTX_CLIENT_SECRET: 5173df4b-9450-492b-b6a4-9854d74c172e
+datagrid:
+  service-name: localhost
+  app-name: datagrid-service
+  user-name: demo
+  password: demo
+  port: 11222
