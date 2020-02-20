@@ -2,7 +2,8 @@
     "center" : {
       "name" : "New York, New York, United States",
       "lon" : -73.93473790662176,
-      "lat" : 40.73363170564227
+      "lat" : 40.73363170564227,
+      "zoom" : 10
     },
     "shelters" : [ {
       "id" : "464f7940-4e5d-11ea-bcc5-c73f08b10245",

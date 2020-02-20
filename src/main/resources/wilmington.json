@@ -2,7 +2,8 @@
     "center" : {
       "name" : "Wilmington, North Carolina, United States",
       "lon" : -77.886765,
-      "lat" : 34.158808
+      "lat" : 34.158808,
+      "zoom" : 10.5
     },
     "shelters" : [ {
       "id" : "1",

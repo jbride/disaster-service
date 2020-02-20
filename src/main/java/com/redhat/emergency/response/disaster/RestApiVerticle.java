@@ -118,14 +118,8 @@ public class RestApiVerticle extends CacheAccessVerticle {
      */
     private boolean applyDisasterJson(JsonObject json) {
         try {
-            json.getJsonArray("shelters").forEach(shelter -> {
-                Json.decodeValue(((JsonObject) shelter).encode(), Shelter.class);
-            });
-
-            json.getJsonArray("inclusionZones").forEach(inclusionZone -> {
-                Json.decodeValue(((JsonObject) inclusionZone).encode(), InclusionZone.class);
-            });
-
+            Json.decodeValue(json.getJsonArray("shelters").encode(), Shelter[].class);
+            Json.decodeValue(json.getJsonArray("inclusionZones").encode(), InclusionZone[].class);
             Json.decodeValue(json.getJsonObject("center").encode(), DisasterCenter.class);
         } catch (Exception e) {
             log.error("Decoding problem", e);
