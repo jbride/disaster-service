@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.Json;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.oauth2.OAuth2Auth;
 import io.vertx.ext.auth.oauth2.OAuth2FlowType;
@@ -118,7 +119,7 @@ public class RestApiVerticle extends CacheAccessVerticle {
      */
     private boolean applyDisasterJson(JsonObject json) {
         try {
-            Json.decodeValue(json.getJsonArray("shelters").encode(), Shelter[].class);
+            json.put("shelters", new JsonArray(Json.encode(Json.decodeValue(json.getJsonArray("shelters").encode(), Shelter[].class))));
             Json.decodeValue(json.getJsonArray("inclusionZones").encode(), InclusionZone[].class);
             Json.decodeValue(json.getJsonObject("center").encode(), DisasterCenter.class);
         } catch (Exception e) {

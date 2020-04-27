@@ -8,20 +8,20 @@
     "shelters" : [ {
       "id" : "464f7940-4e5d-11ea-bcc5-c73f08b10245",
       "name" : "Jersey City Emergency Center",
-      "lon" : -74.09324756959484,
-      "lat" : 40.7406145325902,
+      "lon" : -74.0932,
+      "lat" : 40.7406,
       "rescued" : 0
     }, {
       "id" : "5a3b6b30-4e5d-11ea-b3fa-c56d7a8032b3",
       "name" : "JFK Emergency Shelter",
-      "lon" : -73.83223105800536,
-      "lat" : 40.65551467848243,
+      "lon" : -73.8322,
+      "lat" : 40.6555,
       "rescued" : 0
     }, {
       "id" : "7aab6780-4e5d-11ea-b3fa-c56d7a8032b3",
       "name" : "Staten Island Critical Care",
-      "lon" : -74.18144972524011,
-      "lat" : 40.63842282457446,
+      "lon" : -74.1814,
+      "lat" : 40.6384,
       "rescued" : 0
     } ],
     "inclusionZones" : [ {
