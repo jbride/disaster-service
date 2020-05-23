@@ -39,14 +39,9 @@ class ClientConfiguration {
                 .enable()
                 .username(user)
                 .password(password)
-                .realm("ApplicationRealm")
+                .realm("default")
                 .serverName(saslName)
-                .saslMechanism("DIGEST-MD5")
-                .saslQop(SaslQop.AUTH)
-                .ssl()
-                .enable()
-                .trustStoreFileName(TRUSTSTORE_PATH)
-                .trustStorePassword(TRUSTSTORE_PASSWORD);
+                .saslMechanism("PLAIN");
 
         return cfg;
     }
