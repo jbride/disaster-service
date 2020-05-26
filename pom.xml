@@ -40,7 +40,7 @@
     <dependency>
       <groupId>org.infinispan</groupId>
       <artifactId>infinispan-client-hotrod</artifactId>
-      <version>9.4.6.Final-redhat-00002</version>
+      <version>10.1.5.Final-redhat-00001</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
